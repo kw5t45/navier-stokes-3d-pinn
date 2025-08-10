@@ -52,7 +52,7 @@ def boundary_loss(model, collocation_points):
     z = collocation_points[:, 2]
 
     # Create a boolean mask for boundary points
-    tol = 1e-4  # tolerance for floating point comparison
+    tol = 0.01  # tolerance for floating point comparison
     on_boundary = ( (torch.abs(x) < tol) | (torch.abs(x - 1) < tol) |
                     (torch.abs(y) < tol) | (torch.abs(y - 1) < tol) |
                     (torch.abs(z) < tol) | (torch.abs(z - 1) < tol) )
@@ -75,9 +75,9 @@ def boundary_loss(model, collocation_points):
 
 def initial_loss(model, collocation_points, sigma):
     t = collocation_points[:, 3]
-    mask = (t == 0)
+    tol = 0.1
+    mask = (torch.abs(t) < tol)
     initial_points = collocation_points[mask]  # shape [N_initial,4]
-
     if initial_points.shape[0] == 0:
         return torch.tensor(0.0, device=collocation_points.device)
 
@@ -90,16 +90,22 @@ def initial_loss(model, collocation_points, sigma):
     z = initial_points[:, 2]
 
     # Calculate psi only at initial points
-    psi = torch.exp(-((x - 0.5) ** 2 + (y - 0.5) ** 2 + (z - 0.5) ** 2) / (sigma ** 2))
+    psi = 10*torch.exp(-((x - 0.5) ** 2 + (y - 0.5) ** 2 + (z - 0.5) ** 2) / (sigma ** 2))
 
     # Define true initial velocity at initial points
     u_true = torch.stack([
         - (2 * (y - 0.5) / (sigma ** 2)) * psi,
         (2 * (x - 0.5) / (sigma ** 2)) * psi,
-        torch.zeros_like(z)
+        (2*(z-0.5)/(sigma**2))*psi
     ], dim=1)
+    #
+    # u_true = torch.stack([
+    #     x, y, z
+    # ], dim=1)
+
 
     loss = torch.mean((u_pred - u_true) ** 2)
+
     return loss
 
 
@@ -185,4 +191,4 @@ def total_loss(model, collocation_points, nu=0.00001, simga=0.05, l_pde=0.01, l_
         model, collocation_points) + l_anchor*anchor_loss(model)
     return total, navier_stokes_pde_loss(model, collocation_points, nu), incompressibility_loss(
         model, collocation_points), initial_loss(model, collocation_points, simga), boundary_loss(
-        model, collocation_points), l_anchor*anchor_loss(model)
+        model, collocation_points), anchor_loss(model)
