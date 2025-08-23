@@ -65,8 +65,7 @@ def boundary_loss(model, collocation_points):
 
     outputs = model(boundary_points)  # [N_b, 4]: u,v,w,p
     u_pred = outputs[:, :3]            # predicted velocity (u,v,w)
-    u_target = torch.zeros_like(u_pred)  # no-slip condition: velocity = 0
-    loss = torch.mean((u_pred - u_target) ** 2)
+    loss = torch.mean(u_pred ** 2)
     return loss
 
 
@@ -75,7 +74,7 @@ def boundary_loss(model, collocation_points):
 
 def initial_loss(model, collocation_points, sigma):
     t = collocation_points[:, 3]
-    tol = 0.1
+    tol = 0.01
     mask = (torch.abs(t) < tol)
     initial_points = collocation_points[mask]  # shape [N_initial,4]
     if initial_points.shape[0] == 0:
@@ -90,7 +89,7 @@ def initial_loss(model, collocation_points, sigma):
     z = initial_points[:, 2]
 
     # Calculate psi only at initial points
-    psi = 10*torch.exp(-((x - 0.5) ** 2 + (y - 0.5) ** 2 + (z - 0.5) ** 2) / (sigma ** 2))
+    psi = 1*torch.exp(-((x - 0.5) ** 2 + (y - 0.5) ** 2 + (z - 0.5) ** 2) / (sigma ** 2))
 
     # Define true initial velocity at initial points
     u_true = torch.stack([

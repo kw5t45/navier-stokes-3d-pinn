@@ -8,13 +8,13 @@ class NeuralNetwork(nn.Module):
         self.model = nn.Sequential(
             nn.Linear(4, 50),
             nn.Tanh(),
-            nn.Linear(50, 50),
+            nn.Linear(50, 128),
             nn.Tanh(),
-            nn.Linear(50, 50),
+            nn.Linear(128, 128),
             nn.Tanh(),
-            nn.Linear(50, 50),
+            nn.Linear(128, 128),
             nn.Tanh(),
-            nn.Linear(50, 4)
+            nn.Linear(128, 4)
         )
 
     def forward(self, x):

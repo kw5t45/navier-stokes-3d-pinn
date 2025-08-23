@@ -1,6 +1,9 @@
 from model import NeuralNetwork
 import torch
 import numpy as np
+from matplotlib import cm
+from matplotlib.animation import FuncAnimation, PillowWriter
+
 # model = NeuralNetwork()  # initialize model exactly like before
 # model.load_state_dict(torch.load("navier_stokes_model.pth"))
 # model.eval()  # set to evaluation mode
@@ -225,6 +228,77 @@ def animate_velocity_magnitude(model_path, n_per_axis=100, n_frames=60,
     anim = FuncAnimation(fig, update, frames=n_frames, interval=60, blit=False)
     plt.show()
 
-animate_velocity_magnitude("navier_stokes_model.pth", n_per_axis=200, n_frames=60, fixed_z=0.00)
-# animate_xy_slice("navier_stokes_model.pth", n_per_axis=20, n_frames=60, fixed_z=0.05)
-# animate_vector_field("navier_stokes_model.pth", n_per_axis=10, n_frames=15)
+
+def animate_particles(model_path, n_per_axis=100, n_frames=200, dt=0.01,
+                      fixed_z=0.5, t_start=0.0, save=False, save_path="particles.gif"):
+    # Load model
+    model = NeuralNetwork()
+    model.load_state_dict(torch.load(model_path))
+    model.eval()
+    device = next(model.parameters()).device
+
+    # Initial particle positions (grid)
+    coords = torch.linspace(0, 1, n_per_axis)
+    xg, yg = torch.meshgrid(coords, coords, indexing='ij')
+    xy = torch.stack([xg, yg], dim=-1).reshape(-1, 2)  # [N, 2]
+    fixed_z_tensor = torch.full((len(xy), 1), fixed_z)
+
+    # Convert to tensor on device
+    positions = torch.cat([xy, fixed_z_tensor], dim=1).to(device)  # [N,3]
+
+    # Random colors for particles (fixed)
+    colors = cm.hsv(xy[:, 0])  # hue depends on x position
+
+    # Time tracking
+    t_val = t_start
+
+    # Figure/axes setup
+    fig, ax = plt.subplots(figsize=(6, 6))
+    sc = ax.scatter(positions[:, 0].cpu().numpy(),
+                    positions[:, 1].cpu().numpy(),
+                    c=colors, s=5)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_aspect('equal')
+    ax.set_title(f"t = {t_val:.2f}")
+
+    def update(frame_idx):
+        nonlocal t_val, positions
+        t_tensor = torch.full((len(positions), 1), t_val, device=device)
+
+        # Build full (x, y, z, t) input
+        pts_4d = torch.cat([positions, t_tensor], dim=1)  # [N,4]
+
+        with torch.no_grad():
+            output = model(pts_4d)  # [N,4]
+        u = output[:, 0]
+        v = output[:, 1]
+        # w = output[:, 2]  # Ignored for 2D slice
+
+        # Update positions
+        positions[:, 0] += u * dt
+        positions[:, 1] += v * dt
+
+        # Optional: keep inside domain
+        positions[:, 0] = torch.clamp(positions[:, 0], 0, 1)
+        positions[:, 1] = torch.clamp(positions[:, 1], 0, 1)
+
+        # Update scatter plot
+        sc.set_offsets(positions[:, :2].cpu().numpy())
+        t_val += dt
+        ax.set_title(f"t = {t_val:.2f}")
+        return [sc]
+
+    anim = FuncAnimation(fig, update, frames=n_frames,
+                         interval=60, blit=False)
+
+    if save:
+        anim.save(save_path, writer=PillowWriter(fps=60))
+        print(f"Saved animation to {save_path}")
+    else:
+        plt.show()
+
+#animate_particles('s=0.2_nu=1e-06_lr1=0.0005_lr2=0.00075.pth', 200, 200, 0.01, 0.25, save=True)
+# animate_velocity_magnitude("s=0.2_nu=1e-06_lr1=0.0005_lr2=0.00075.pth", n_per_axis=200, n_frames=60, fixed_z=0.5)
+animate_xy_slice("s=0.2_nu=1e-06_lr1=0.0005_lr2=0.00075.pth", n_per_axis=80, n_frames=60, fixed_z=0.125)
+#animate_vector_field("s=0.2_nu=1e-06_lr1=0.0005_lr2=0.00075.pth", n_per_axis=10, n_frames=15)
