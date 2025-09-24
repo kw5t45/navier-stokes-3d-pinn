@@ -1,2 +1,54 @@
-# navier-stokes-3d-pinn
-Physics Informed Neural Network modeling fluid velocity and pressure given a vortex like initial condition velocity field.
+# Fluid Simulation Physics-Informed Neural Network for Vortex-Like Velocity Vector Field
+### In this project a classic physics informed neural network is used in order to predict and approximate turbulent-vortex like flow of a non-compressible fluid inside a cube, with dirichlet conditions on $\partial_{\omega}$.
+### Equation overview
+The infamous Navier-Stokes equations govern fluid dynamics with various applications ranging from weather forecasting to aerodynamics simulations. The general form of the equations regarding incompressible flows is 
+$\nabla \cdot u = 0$,
+$ρ\frac{\partial u}{\partial t}=-\nabla p + μ \nabla^2u + F$
+where:
+
+- $u$ is the initial velocity vector field
+- $ρ$ is the fluid density
+- $p$ is the initial pressure function
+- $μ$ is the dynamic viscocity
+- $F$ is the sum of the external forces.
+
+In this project we look at the non-compressible case, using *kinematic viscosity* defined as 
+$ν=\frac{μ}{ρ}$, $\Leftrightarrow \frac{\partial u}{\partial t}=-\nabla p + ν \nabla^2u + F$.
+
+### Initial conditions
+The PDE's initial conditions are $u$ which denotes the initial velocity vector field and $p$ which denotes the initial pressure field scalar for each point. 
+
+However, the initial velocity vector field must satisfy the first equation, and therefore the initial pressure field can be found by substituting the velocity field in the second equation.
+
+For the initial vector field a vortex-like vector field is chosen, center at $(x, y, z)=(0.5, 0.5, 0.5)$.
+We center a Gaussian-like scalar sphere at $0.5, 0.5, 0.5$ defined by 
+$ψ(x, y, z)= e^{(\frac{(x-0.5)^2+(y-0.5)^2+(z-0.5)^2}{σ^2})}$
+We want however, a vector field that satsfies the incompressibility equation, so we build the velocity function from a 2D stream function such that
+$\textbf{u}=(u, v, w)=(ψ_x,-ψ_y,0)$
+Because $u_x + v_y = 0$, the construction is incompressibly from any $ψ$ smooth in $x, y$.
+To construct the velocity vector field, we take the partial derivates  $u=(\frac{\partialψ}{\partial x}, -\frac{\partialψ}{\partial y}, 0)$ such that the vectors create an anti-clockwise circle for each z-intersection, with no vectors moving up or down in the zero axis. Veryfing that the incompressibility equation is true:
+$\nabla\cdot u= \frac{\partial u}{\partial x} + \frac{\partial v}{\partial y} = \frac{\partial ^2ψ}{\partial x^2} + \frac{\partial ^2ψ}{\partial y^2} = -\frac{(2x-1)(2y-1)ψ}{σ^2}+\frac{(2x-1)(2y-1)ψ}{σ^2}=0$,
+where $σ$ defines the gaussian standard deviation parameter.
+
+The initial pressure scalar funciton must satisfy the 2nd Navier-Stokes equation, it can be approximated by solving the Poisson equation but we leave it up to the PINN to find it, and we rather focus on the velocity vector field evolution over time.
+
+### Boundary conditions
+For this fluid simulation the non-compressible fluid is closed in a cube in $R^3$ with $0 < x, y, z, t < 1$ and we also predict the evolution only after the first second.
+No-slip dirichlet boundary conditions are used on $\partial ω$ such that $u(x_{\partial ω}, y_{\partial ω}, z_{\partial ω}, t)=0$ for all $0<t<1$.
+
+### Network architecture 
+For this PINN approach a simple MLP is used, with 4 input scalar values representing $x, y, z, t$ coordinates and 4 scalar output values representing $\textbf{u}, \textbf{v}, \textbf{w}$ velocity values as well as $p$ value scalar, with respect to an initial pressure anchoring point-value given in the training process.
+
+5 hidden layers are used ranging from 128-256 neurons with *Tanh* activation for all layers attempting to grasp the complexity of turbulent flow. 
+
+### Collocation points
+
+For different parts of the training different collocation points are used, because the equation behaves differently inside the cube, on the edges, and at $t=0$.
+
+Using *Latin Hypercube Sampling* we sample 30.000 points inside the cube (across all values of $t$), 10.000 initial condition points for $t=0$ and 6x1.000 points on boundaries of the cube for $x_{\partial ω}, y_{\partial ω}, z_{\partial ω},$ across all values of $t$.
+
+### Loss function 
+Regarding the used loss function, it is crucial to understand that there are many criteria and lossed to minimize for different collocation points, thus our goal is to fit in all of those loss functions at the same time.
+
+More specifically, denoting the model predictions as $\hat{u}, \hat{v}, \hat{w}, p$, starting with the incompressibility equation, the incompressibility loss can be described as $\mathcal{L}_{inc}=\frac{1}{N}\sum_{i=1}^{N}(\frac{\partial\hat{u}}{\partial x}(x_i, y_i, z_i, t_i) + \frac{\partial\hat{v}}{\partial y}(x_i, y_i, z_i, t_i) + \frac{\partial\hat{w}}{\partial z}(x_i, y_i, z_i, t_i))^2$, 
+simply minimizing any non-zero compressibility prediction. 
