@@ -50,5 +50,116 @@ Using *Latin Hypercube Sampling* we sample 30.000 points inside the cube (across
 ### Loss function 
 Regarding the used loss function, it is crucial to understand that there are many criteria and lossed to minimize for different collocation points, thus our goal is to fit in all of those loss functions at the same time.
 
-More specifically, denoting the model predictions as $\hat{u}, \hat{v}, \hat{w}, p$, starting with the incompressibility equation, the incompressibility loss can be described as $\mathcal{L}_{inc}=\frac{1}{N}\sum_{i=1}^{N}(\frac{\partial\hat{u}}{\partial x}(x_i, y_i, z_i, t_i) + \frac{\partial\hat{v}}{\partial y}(x_i, y_i, z_i, t_i) + \frac{\partial\hat{w}}{\partial z}(x_i, y_i, z_i, t_i))^2$, 
+More specifically, denoting the model predictions as $\hat{u}, \hat{v}, \hat{w}, p$, starting with the incompressibility equation, the incompressibility loss can be described as
+ ```math
+\mathcal{L}_{inc}=\frac{1}{N}\sum_{i=1}^{N}(\frac{\partial\hat{u}}{\partial x}(x_i, y_i, z_i, t_i) + \frac{\partial\hat{v}}{\partial y}(x_i, y_i, z_i, t_i) + \frac{\partial\hat{w}}{\partial z}(x_i, y_i, z_i, t_i))^2
+```
+, 
 simply minimizing any non-zero compressibility prediction. 
+
+The pressure "anchor loss" is just 
+$\mathcal{L}_{anchor}=(\hat{p}(0,0,0,0)-0)^2$,
+enforcing 0 pressure at $0, 0, 0, 0$.
+
+The boundary (non-slip) condition for boundary points at $\partial ω$ can be described as 
+```math
+\mathcal{L}_{bc}=\frac{1}{N_b}\sum_{(x, y, z) \in \partial ω}^{}(\hat{u}^2(x, y, z, t) +\hat{v}^2(x, y, z, t) +\hat{w}^2(x, y, z, t))
+```
+.
+
+For the intial condition loss as described above for $t=0$ we assume 
+$ψ(x, y, z)= e^{(\frac{(x-0.5)^2+(y-0.5)^2+(z-0.5)^2}{σ^2})}$,
+$u_{true}(x,y,z,0)=-\frac{2(y-0.5)}{σ^2}ψ$,
+$v_{true}(x,y,z,0)=\frac{2(x-0.5)}{σ^2}ψ$,
+$w_{true}(x,y,z,0)=0$
+and the final loss is 
+
+
+```math
+\mathcal{L}_{\text{ic}} \;=\; 
+\frac{1}{N_0} \sum_{(x,y,z,0)} 
+\left\|
+\begin{bmatrix}
+\hat{u}(x,y,z,0) \\
+\hat{v}(x,y,z,0) \\
+\hat{w}(x,y,z,0)
+\end{bmatrix}
+-
+\begin{bmatrix}
+u_{\text{true}}(x,y,z,0) \\
+v_{\text{true}}(x,y,z,0) \\
+w_{\text{true}}(x,y,z,0)
+\end{bmatrix}
+\right\|^2
+ ```
+
+Finally, the residuals for each velocity component are:
+
+```math
+R_u = \frac{\partial \hat{u}}{\partial t}
++ \hat{u}\frac{\partial \hat{u}}{\partial x}
++ \hat{v}\frac{\partial \hat{u}}{\partial y}
++ \hat{w}\frac{\partial \hat{u}}{\partial z}
++ \frac{\partial \hat{p}}{\partial x}
+- \nu \left(
+\frac{\partial^2 \hat{u}}{\partial x^2} +
+\frac{\partial^2 \hat{u}}{\partial y^2} +
+\frac{\partial^2 \hat{u}}{\partial z^2}
+\right)
+```
+```math
+R_v = \frac{\partial \hat{v}}{\partial t}
++ \hat{u}\frac{\partial \hat{v}}{\partial x}
++ \hat{v}\frac{\partial \hat{v}}{\partial y}
++ \hat{w}\frac{\partial \hat{v}}{\partial z}
++ \frac{\partial \hat{p}}{\partial y}
+- \nu \left(
+\frac{\partial^2 \hat{v}}{\partial x^2} +
+\frac{\partial^2 \hat{v}}{\partial y^2} +
+\frac{\partial^2 \hat{v}}{\partial z^2}
+\right)
+
+```
+```math
+R_w = \frac{\partial \hat{w}}{\partial t}
++ \hat{u}\frac{\partial \hat{w}}{\partial x}
++ \hat{v}\frac{\partial \hat{w}}{\partial y}
++ \hat{w}\frac{\partial \hat{w}}{\partial z}
++ \frac{\partial \hat{p}}{\partial z}
+- \nu \left(
+\frac{\partial^2 \hat{w}}{\partial x^2} +
+\frac{\partial^2 \hat{w}}{\partial y^2} +
+\frac{\partial^2 \hat{w}}{\partial z^2}
+\right)
+```
+The final PDE loss is:
+```math
+\mathcal{L}_{\text{pde}} \;=\;
+\frac{1}{N} \sum_{i=1}^N \Big( R_u^2 + R_v^2 + R_w^2 \Big)
+```
+and the complete (weighted) total loss is:
+```math
+\mathcal{L}_{\text{total}} \;=\;
+\lambda_{\text{pde}} \, \mathcal{L}_{\text{pde}}
++ \lambda_{\text{inc}} \, \mathcal{L}_{\text{inc}}
++ \lambda_{\text{ic}} \, \mathcal{L}_{\text{ic}}
++ \lambda_{\text{bc}} \, \mathcal{L}_{\text{bc}}
++ \lambda_{\text{anchor}} \, \mathcal{L}_{\text{anchor}}
+```
+
+### Training process
+
+The training loss is much too complicated for a neural network to converge at once given any number of collocation points, especially when the flow is turbulent and unpredictable.
+To tackle this, the network is trained across different loss functions (and their corresponding collocation points) seperately and then gradually all of the (weighted) losses are used toghether. More specifically, 
+
+
+
+
+
+
+
+
+
+
+
+
