@@ -150,8 +150,10 @@ and the complete (weighted) total loss is:
 ### Training process
 
 The training loss is much too complicated for a neural network to converge at once given any number of collocation points, especially when the flow is turbulent and unpredictable.
-To tackle this, the network is trained across different loss functions (and their corresponding collocation points) seperately and then gradually all of the (weighted) losses are used toghether. More specifically, 
+To tackle this, the network is trained across different loss functions (and their corresponding collocation points) seperately and then gradually all of the (weighted) losses are used toghether. 
 
+More specifically, the MLP is initally trained only over inital condition loss function on initial condition collocation points as a warm up over 2000 epochs.
+After, the model uses the total loss weighted equally but using a ramp factor, multiplying by $epoch / 1000$$, ramping up over the first 1000 epochs. Finally, the model is trained on the boundary points over 500 epochs on boundary collocation points.
 
 
 
