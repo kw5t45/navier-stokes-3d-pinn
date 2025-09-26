@@ -95,7 +95,7 @@ def initial_loss(model, collocation_points, sigma):
     u_true = torch.stack([
         - (2 * (y - 0.5) / (sigma ** 2)) * psi,
         (2 * (x - 0.5) / (sigma ** 2)) * psi,
-        (2*(z-0.5)/(sigma**2))*psi
+        0
     ], dim=1)
     #
     # u_true = torch.stack([

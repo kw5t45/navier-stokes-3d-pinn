@@ -54,6 +54,7 @@ import torch
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
+
 def animate_vector_field(model_path, n_per_axis=10, n_frames=20, t_start=0.0, t_end=1.0):
     # Load model
     model = NeuralNetwork()
@@ -119,6 +120,7 @@ def animate_vector_field(model_path, n_per_axis=10, n_frames=20, t_start=0.0, t_
     anim = FuncAnimation(fig, update, frames=n_frames, interval=200, blit=False)
     plt.show()
 
+
 import torch
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -178,7 +180,7 @@ def animate_xy_slice(model_path, n_per_axis=20, n_frames=20, t_start=0.0, t_end=
 
 
 def animate_velocity_magnitude(model_path, n_per_axis=100, n_frames=60,
-                                t_start=0.0, t_end=1.0, fixed_z=0.5):
+                               t_start=0.0, t_end=1.0, fixed_z=0.5):
     # Load model
     model = NeuralNetwork()
     model.load_state_dict(torch.load(model_path))
@@ -283,14 +285,13 @@ def animate_particles(model_path, n_per_axis=100, n_frames=200, dt=0.01,
         positions[:, 0] = torch.clamp(positions[:, 0], 0, 1)
         positions[:, 1] = torch.clamp(positions[:, 1], 0, 1)
 
-        # Update scatter plot
         sc.set_offsets(positions[:, :2].cpu().numpy())
         t_val += dt
         ax.set_title(f"t = {t_val:.2f}")
         return [sc]
 
     anim = FuncAnimation(fig, update, frames=n_frames,
-                         interval=60, blit=False)
+                         interval=1000/60, blit=False)
 
     if save:
         anim.save(save_path, writer=PillowWriter(fps=60))
@@ -298,7 +299,74 @@ def animate_particles(model_path, n_per_axis=100, n_frames=200, dt=0.01,
     else:
         plt.show()
 
-#animate_particles('s=0.2_nu=1e-06_lr1=0.0005_lr2=0.00075.pth', 200, 200, 0.01, 0.25, save=True)
-# animate_velocity_magnitude("s=0.2_nu=1e-06_lr1=0.0005_lr2=0.00075.pth", n_per_axis=200, n_frames=60, fixed_z=0.5)
-animate_xy_slice("s=0.2_nu=1e-06_lr1=0.0005_lr2=0.00075.pth", n_per_axis=80, n_frames=60, fixed_z=0.125)
-#animate_vector_field("s=0.2_nu=1e-06_lr1=0.0005_lr2=0.00075.pth", n_per_axis=10, n_frames=15)
+
+def animate_pressure(model_path, n_per_axis=100, n_frames=100, fixed_z=0.5,
+                     t_start=0.0, t_end=1.0, save=False, save_path="pressure.gif"):
+    """
+    Animate pressure field on z=constant plane for 0 < t < 1.
+
+    Args:
+        model_path: path to saved NN model
+        n_per_axis: grid resolution per axis
+        n_frames: number of frames in the animation
+        fixed_z: constant z plane value
+        t_start, t_end: time range
+        save: whether to save as gif
+        save_path: path to gif file
+    """
+    # Load model
+    model = NeuralNetwork()
+    model.load_state_dict(torch.load(model_path))
+    model.eval()
+    device = next(model.parameters()).device
+
+    # Create grid over [0,1]x[0,1] in xy
+    coords = torch.linspace(0, 1, n_per_axis)
+    xg, yg = torch.meshgrid(coords, coords, indexing='ij')
+    xy = torch.stack([xg, yg], dim=-1).reshape(-1, 2)  # [N,2]
+    fixed_z_tensor = torch.full((len(xy), 1), fixed_z)
+    xy_with_z = torch.cat([xy, fixed_z_tensor], dim=1).to(device)  # [N,3]
+
+    # Figure setup
+    fig, ax = plt.subplots(figsize=(6, 6))
+    im = ax.imshow(np.zeros((n_per_axis, n_per_axis)),
+                   extent=(0, 1, 0, 1), origin='lower', cmap='viridis')
+    ax.set_title(f"t = {t_start:.2f}")
+    fig.colorbar(im, ax=ax, label="Pressure")
+
+    def update(frame_idx):
+        t_val = t_start + (t_end - t_start) * frame_idx / (n_frames - 1)
+        t_tensor = torch.full((len(xy_with_z), 1), t_val, device=device)
+
+        # Build (x, y, z, t) input
+        pts_4d = torch.cat([xy_with_z, t_tensor], dim=1)
+
+        with torch.no_grad():
+            output = model(pts_4d)  # [N,4]
+        p = output[:, 3].cpu().numpy()  # pressure field
+
+        # Reshape into grid for imshow
+        p_grid = p.reshape(n_per_axis, n_per_axis)
+
+        im.set_data(p_grid)
+        ax.set_title(f"Pressure at t = {t_val:.2f}")
+        return [im]
+
+    anim = FuncAnimation(fig, update, frames=n_frames,
+                         interval=1000 / 60, blit=False)
+
+    if save:
+        anim.save(save_path, writer=PillowWriter(fps=60))
+        print(f"Saved animation to {save_path}")
+    else:
+        plt.show()
+
+z_coords =[0.25, 0.5, 0.75]
+#for z_coord in z_coords:
+#     animate_pressure('water_s=0.2_nu=1.5e-06_lr1=0.0005_lr2=0.0005.pth', 100, 60, z_coord, 0,1, True, f"pressure_{z_coord}.gif")
+# for z_coord in z_coords:
+#     animate_particles('water_s=0.2_nu=1.5e-06_lr1=0.0005_lr2=0.0005.pth', n_per_axis=1000, n_frames=60, dt=1/60, fixed_z=z_coord,
+#                   save=True, save_path=f'xy_z_{z_coord}.gif')
+# animate_velocity_magnitude("__s=0.2_nu=1e-08_lr1=0.0005_lr2=0.0005.pth", n_per_axis=200, n_frames=60, fixed_z=0)
+# animate_xy_slice("__s=0.2_nu=1e-08_lr1=0.0005_lr2=0.0005.pth", n_per_axis=80, n_frames=60, fixed_z=0.12)
+# animate_vector_field("__s=0.2_nu=1e-08_lr1=0.0005_lr2=0.0005.pth", n_per_axis=10, n_frames=15)

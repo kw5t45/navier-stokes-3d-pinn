@@ -8,9 +8,7 @@ from pyDOE import lhs
 from loss_function import *
 
 
-# collocation points
-
-
+# generating collocation points
 def generate_lhs_collocation_points(n_points):
     print("Generating collocation points ...")
     # R4 since x y z t
@@ -54,7 +52,7 @@ def sample_initial_points(n_points=2000):
 
 n_collocation_r4 = 30_000
 n_collocation_initial = 10000 # 10000
-n_collocation_boundary = 1000 # 600000 // 6 # total points -  points per surface
+n_collocation_boundary = 1000 # 60000 // 6 # total points -  points per surface
 
 boundary_pts = sample_boundary_points(n_collocation_boundary)
 initial_pts = sample_initial_points(n_collocation_initial)
@@ -79,16 +77,18 @@ print("All points concatenated shape:", all_points.shape)
 
 # ic
 model = NeuralNetwork()
-num_epochs = 2000
-lr_1 = 0.0005
+
 sigma = 0.2
-nu = 0.000001
-lr_2=0.00075
+# nu = 0.00000089 # water
+nu = 0.0000015 # air
 
+# Initial condition warmup training
 
-optimizer = optim.Adam(model.parameters(), lr=lr_1)
+epochs_intial = 2000
+initial_lr = 0.0005
 
-for epoch in tqdm(range(num_epochs)):
+optimizer = optim.Adam(model.parameters(), lr=initial_lr)
+for epoch in tqdm(range(epochs_intial)):
     optimizer.zero_grad()
 
     loss = initial_loss(model, initial_pts, sigma)
@@ -102,22 +102,25 @@ for epoch in tqdm(range(num_epochs)):
         print(f'IC loss: {loss.item():.4f}')
 
 
-optimizer = optim.Adam(model.parameters(), lr=lr_2)
+# Total losses - ramping
+total_lr =0.0005
+total_epochs = 1000
 
-num_epochs = 100 #1500
-for epoch in tqdm(range(num_epochs)):
+optimizer = optim.Adam(model.parameters(), lr=total_lr)
+
+for epoch in tqdm(range(total_epochs)):
     optimizer.zero_grad()
 
-    pde = navier_stokes_pde_loss(model, all_points, nu)
-    inc = incompressibility_loss(model, all_points)
+    pde = navier_stokes_pde_loss(model, collocation_points, nu)
+    inc = incompressibility_loss(model, collocation_points)
     anc = anchor_loss(model)
-    bc = boundary_loss(model, all_points)
-    ic_loss = initial_loss(model, all_points, sigma)
+    bc = boundary_loss(model, boundary_pts)
+    ic_loss = initial_loss(model, initial_pts, sigma)
 
     # Ramp factor grows from 0 → 1 over first 1000 steps
     alpha = min(1.0, epoch / 1000)
 
-    loss = 0.1 * ic_loss + alpha * (pde + inc + 1e-4 * anc + bc)
+    loss = ic_loss + bc + alpha * (pde + inc + 1e-4 * anc)
 
     loss.backward()
     optimizer.step()
@@ -125,4 +128,21 @@ for epoch in tqdm(range(num_epochs)):
     if epoch % 5 == 0:
         print(f"TOTAL (weighted): {loss.item():.4f} | IC: {ic_loss.item():.4f} | PDE: {pde.item():.4f} | INCOMP.: {inc.item():.4f} | BC: {bc.item():.4f}")
 
-torch.save(model.state_dict(), f's={sigma}_nu={nu}_lr1={lr_1}_lr2={lr_2}.pth')
+
+boundary_lr = 0.00005
+boundary_epochs = 500
+optimizer = optim.Adam(model.parameters(), boundary_lr)
+
+for epoch in tqdm(range(boundary_epochs)):
+    optimizer.zero_grad()
+
+    loss = boundary_loss(model, boundary_pts)
+    loss.backward()
+    optimizer.step()
+    for name, param in model.named_parameters():
+        if param.grad is None:
+            print(f"Warning: No grad for {name}")
+
+    if epoch % 100 == 0:
+        print(f'BC loss: {loss.item():.4f}')
+torch.save(model.state_dict(), f'water_s={sigma}_nu={nu}_lr1={initial_lr}_lr2={total_lr}.pth')

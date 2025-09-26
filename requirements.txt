@@ -1,0 +1,5 @@
+torch~=2.1.0
+tqdm~=4.66.4
+pyDOE~=0.3.8
+numpy~=1.26.4
+matplotlib~=3.9.2

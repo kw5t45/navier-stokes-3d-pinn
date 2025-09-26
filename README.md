@@ -1,10 +1,17 @@
 # Fluid Simulation Physics-Informed Neural Network for Vortex-Like Velocity Vector Field
 ### In this project a classic physics informed neural network is used in order to predict and approximate turbulent-vortex like flow of a non-compressible fluid inside a cube, with dirichlet conditions on $\partial_{\omega}$.
+
+<br>
+<img src="resources/xy_z_0.5.gif" alt="model" width="400"/>
+<br>
+
+
 ### Equation overview
 The infamous Navier-Stokes equations govern fluid dynamics with various applications ranging from weather forecasting to aerodynamics simulations. The general form of the equations regarding incompressible flows is 
 $\nabla \cdot u = 0$,
 $ρ\frac{\partial u}{\partial t}=-\nabla p + μ \nabla^2u + F$
 where:
+
 
 - $u$ is the initial velocity vector field
 - $ρ$ is the fluid density
@@ -31,6 +38,19 @@ $\nabla\cdot u= \frac{\partial u}{\partial x} + \frac{\partial v}{\partial y} = 
 where $σ$ defines the gaussian standard deviation parameter.
 
 The initial pressure scalar funciton must satisfy the 2nd Navier-Stokes equation, it can be approximated by solving the Poisson equation but we leave it up to the PINN to find it, and we rather focus on the velocity vector field evolution over time.
+
+Initial velocity vector field represented here, centered at $0.5, 0.5, 0.5$
+<br>
+<img src="resources/Screenshot_16.png" alt="model" width="300" title="test"/>
+<br>
+
+Top-down view, such that incompressibility is clearly seen:
+<br>
+<img src="resources/Screenshot_17.png" alt="model" width="300"/>
+<br>
+
+
+
 
 ### Boundary conditions
 For this fluid simulation the non-compressible fluid is closed in a cube in $R^3$ with $0 < x, y, z, t < 1$ and we also predict the evolution only after the first second.
@@ -155,12 +175,45 @@ To tackle this, the network is trained across different loss functions (and thei
 More specifically, the MLP is initally trained only over inital condition loss function on initial condition collocation points as a warm up over 2000 epochs.
 After, the model uses the total loss weighted equally but using a ramp factor, multiplying by $epoch / 1000$$, ramping up over the first 1000 epochs. Finally, the model is trained on the boundary points over 500 epochs on boundary collocation points.
 
+Total training time is about 3 hours and 10 minutes on a 2.9GHz intel i5 CPU.
+
+### Animation of fluid over different xy intersections for kinematic viscosity = 1.5e-06
+
+$z=0.25$
+<br>
+<img src="resources/xy_z_0.25.gif" alt="model" width="250"/>
+<br>
 
 
+$z=0.5$
+<br>
+<img src="resources/xy_z_0.5.gif" alt="model" width="250"/>
+<br>
 
 
+$z=0.75$
+<br>
+<img src="resources/xy_z_0.75.gif" alt="model" width="250"/>
+<br>
+
+### Animation of relative pressure over different xy intersections
+
+$z=0.25$
+<br>
+<img src="resources/pressure_0.25.gif" alt="model" width="250"/>
+<br>
 
 
+$z=0.5$
+<br>
+<img src="resources/pressure_0.5.gif" alt="model" width="250"/>
+<br>
+
+
+$z=0.75$
+<br>
+<img src="resources/pressure_0.75.gif" alt="model" width="250"/>
+<br>
 
 
 

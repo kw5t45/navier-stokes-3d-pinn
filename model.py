@@ -10,9 +10,11 @@ class NeuralNetwork(nn.Module):
             nn.Tanh(),
             nn.Linear(50, 128),
             nn.Tanh(),
-            nn.Linear(128, 128),
+            nn.Linear(128, 256),
             nn.Tanh(),
-            nn.Linear(128, 128),
+            nn.Linear(256, 256),
+            nn.Tanh(),
+            nn.Linear(256, 128),
             nn.Tanh(),
             nn.Linear(128, 4)
         )
