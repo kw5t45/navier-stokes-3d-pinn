@@ -370,3 +370,4 @@ z_coords =[0.25, 0.5, 0.75]
 # animate_velocity_magnitude("__s=0.2_nu=1e-08_lr1=0.0005_lr2=0.0005.pth", n_per_axis=200, n_frames=60, fixed_z=0)
 # animate_xy_slice("__s=0.2_nu=1e-08_lr1=0.0005_lr2=0.0005.pth", n_per_axis=80, n_frames=60, fixed_z=0.12)
 # animate_vector_field("__s=0.2_nu=1e-08_lr1=0.0005_lr2=0.0005.pth", n_per_axis=10, n_frames=15)
+animate_particles('low_v_test_s=0.2_nu=1e-08_lr1=0.0005_lr2=0.0005.pth', n_per_axis=1000, n_frames=60, dt=1/60, fixed_z=0.5, save=True, save_path='test.gif')

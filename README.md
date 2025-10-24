@@ -215,6 +215,26 @@ $z=0.75$
 <img src="resources/pressure_0.75.gif" alt="model" width="250"/>
 <br>
 
+## Numerical solver 
 
+#### Core idea:
+
+```python
+# Pseudocode implementation
+# step 1 - solving for momentum, ignoring pressure and incomnpressibility equation:
+u* = u^n + Δt * [-(u^n·∇)u^n + ν∇²u^n] # simple eulers
+# Result u* is a predicted, *not* divergence free velocity.
+# step 2 - incompressibility correction:
+u^(n+1) = u* - Δt∇p^(n+1)
+# step 3 - solving for pressure field, using the poisson equation
+∇²p^(n+1) = (1/Δt)∇·u*
+# lastly, apply BCs to vector field.
+
+# iterate for N collocation points over R3, for 60 timesteps over a second?
+# save velocity vectors for each point and pressure scalar, then compare.
+
+
+
+```
 
 
